@@ -8,8 +8,9 @@ import { PrintLogger } from "@/components/print-logger"
 import { CostCalculator } from "@/components/cost-calculator"
 import { PricingCalculator } from "@/components/pricing-calculator"
 import { MarketResearch } from "@/components/market-research"
+import { OrderManager } from "@/components/order-manager"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LayoutDashboard, Calculator, DollarSign, Package, TrendingUp } from "lucide-react"
+import { LayoutDashboard, Calculator, DollarSign, Package, TrendingUp, ShoppingBag } from "lucide-react"
 import { useFilamentStore } from "@/hooks/use-filament-store"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -41,7 +42,7 @@ export default function DashboardPage() {
 
       <main className="container mx-auto p-4 sm:p-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="bg-secondary border border-border">
+          <TabsList className="bg-secondary border border-border flex flex-wrap h-auto gap-1 p-1">
             <TabsTrigger
               value="dashboard"
               className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -76,6 +77,14 @@ export default function DashboardPage() {
             >
               <TrendingUp className="h-4 w-4" />
               <span className="hidden sm:inline">Mercado</span>
+            </TabsTrigger>
+            {/* NOVA ABA DE PEDIDOS */}
+            <TabsTrigger
+              value="orders"
+              className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span className="hidden sm:inline">Pedidos</span>
             </TabsTrigger>
           </TabsList>
 
@@ -149,6 +158,17 @@ export default function DashboardPage() {
               </p>
             </div>
             <MarketResearch filaments={filaments} />
+          </TabsContent>
+
+          {/* NOVA ABA: Orders Management Tab */}
+          <TabsContent value="orders">
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-foreground">Gestão de Pedidos</h2>
+              <p className="mt-1 text-muted-foreground">
+                Gerencie pedidos de marketplaces e clientes particulares, acompanhe a fila de produção e prazos de entrega.
+              </p>
+            </div>
+            <OrderManager />
           </TabsContent>
         </Tabs>
       </main>
