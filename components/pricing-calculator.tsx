@@ -1,25 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
-import { DollarSign, TrendingUp, AlertCircle } from "lucide-react"
+import { DollarSign, TrendingUp, AlertCircle, ArrowLeft } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// Valores médios pré-definidos
-const ENERGY_COST_PER_HOUR = 0.15
-const MACHINE_DEPRECIATION_PER_HOUR = 0.5
-
-const materialTypes = [
-  { value: "pla", label: "PLA", avgPrice: 89.9 },
-  { value: "petg", label: "PETG", avgPrice: 109.9 },
-  { value: "abs", label: "ABS", avgPrice: 99.9 },
-  { value: "tpu", label: "TPU", avgPrice: 159.9 },
-  { value: "pla_plus", label: "PLA+", avgPrice: 119.9 },
-  { value: "silk", label: "PLA Silk", avgPrice: 139.9 },
-]
+import { Button } from "@/components/ui/button"
+import { useFilamentStore } from "@/hooks/use-filament-store"
 
 const complexityMultipliers = [
   { value: "simple", label: "Simples", multiplier: 1.0, description: "Peça básica, sem detalhes" },
@@ -29,22 +18,37 @@ const complexityMultipliers = [
 ]
 
 export function PricingCalculator() {
-  const [material, setMaterial] = useState("pla")
-  const [filamentPrice, setFilamentPrice] = useState(89.9)
-  const [weightGrams, setWeightGrams] = useState(50)
-  const [printTimeHours, setPrintTimeHours] = useState(3)
-  const [printTimeMinutes, setPrintTimeMinutes] = useState(0)
+  const { activeCalc, settings, updateActiveCalc } = useFilamentStore()
+
+  // Estados locais para a calculadora de preço
   const [complexity, setComplexity] = useState("simple")
-  const [profitMargin, setProfitMargin] = useState(100) // Porcentagem de lucro
+  const [profitMargin, setProfitMargin] = useState(100)
   const [quantity, setQuantity] = useState(1)
 
-  const totalPrintTime = printTimeHours + printTimeMinutes / 60
+  // Sincroniza os dados do Custo com a Precificação automaticamente
+  const totalPrintTime = (activeCalc?.printTimeHours || 0) + (activeCalc?.printTimeMinutes || 0) / 60
 
   const pricing = useMemo(() => {
-    // Custo base
-    const filamentCost = (filamentPrice / 1000) * weightGrams
-    const energyCost = ENERGY_COST_PER_HOUR * totalPrintTime
-    const machineCost = MACHINE_DEPRECIATION_PER_HOUR * totalPrintTime
+    if (!activeCalc || !settings) {
+      return {
+        baseCost: 0,
+        adjustedCost: 0,
+        pricePerUnit: 0,
+        discountedPrice: 0,
+        totalPrice: 0,
+        profit: 0,
+        quantityDiscount: 0,
+        profitPercentage: "0",
+      }
+    }
+
+    // Cálculo do custo base (mesma fórmula do CostCalculator)
+    const filamentCost = ((activeCalc.filamentPrice || 0) / 1000) * (activeCalc.weightGrams || 0)
+    const energyCost = (settings.printerPower / 1000) * settings.kwhPrice * totalPrintTime
+    const machineCost = activeCalc.includeDepreciation
+      ? (settings.machineValue / settings.expectedMachineLifeHours) * totalPrintTime
+      : 0
+
     const baseCost = filamentCost + energyCost + machineCost
 
     // Multiplicador de complexidade
@@ -78,94 +82,61 @@ export function PricingCalculator() {
       totalPrice,
       profit,
       quantityDiscount: quantityDiscount * 100,
-      profitPercentage: ((profit / totalCost) * 100).toFixed(0),
+      profitPercentage: totalCost > 0 ? ((profit / totalCost) * 100).toFixed(0) : "0",
     }
-  }, [filamentPrice, weightGrams, totalPrintTime, complexity, profitMargin, quantity])
+  }, [activeCalc, settings, totalPrintTime, complexity, profitMargin, quantity])
 
-  const handleMaterialChange = (value: string) => {
-    setMaterial(value)
-    const selectedMaterial = materialTypes.find((m) => m.value === value)
-    if (selectedMaterial) {
-      setFilamentPrice(selectedMaterial.avgPrice)
-    }
+  // Voltar para a aba de Custo
+  const goToCostTab = () => {
+    const costTab = document.querySelector('[value="cost"]') as HTMLElement
+    if (costTab) costTab.click()
   }
 
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-4">
-        <div className="flex items-center gap-2">
-          <div className="rounded-lg bg-chart-3/20 p-2">
-            <TrendingUp className="h-5 w-5 text-chart-3" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="rounded-lg bg-chart-3/20 p-2">
+              <TrendingUp className="h-5 w-5 text-chart-3" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-medium text-foreground">Calculadora de Preço de Venda</CardTitle>
+              <CardDescription>Defina o preço ideal para seus produtos</CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-lg font-medium text-foreground">Calculadora de Preço de Venda</CardTitle>
-            <CardDescription>Defina o preço ideal para seus produtos</CardDescription>
-          </div>
+          <Button variant="ghost" size="sm" onClick={goToCostTab} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Voltar ao Custo
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Material e Preço */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground">Material</Label>
-            <Select value={material} onValueChange={handleMaterialChange}>
-              <SelectTrigger className="bg-input border-border text-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {materialTypes.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground">Preço (R$/kg)</Label>
-            <Input
-              type="number"
-              value={filamentPrice}
-              onChange={(e) => setFilamentPrice(Number(e.target.value))}
-              className="bg-input border-border text-foreground"
-              min={0}
-              step={0.01}
-            />
-          </div>
-        </div>
-
-        {/* Peso e Tempo */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground">Peso (g)</Label>
-            <Input
-              type="number"
-              value={weightGrams}
-              onChange={(e) => setWeightGrams(Number(e.target.value))}
-              className="bg-input border-border text-foreground"
-              min={0}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground">Horas</Label>
-            <Input
-              type="number"
-              value={printTimeHours}
-              onChange={(e) => setPrintTimeHours(Number(e.target.value))}
-              className="bg-input border-border text-foreground"
-              min={0}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground">Minutos</Label>
-            <Input
-              type="number"
-              value={printTimeMinutes}
-              onChange={(e) => setPrintTimeMinutes(Number(e.target.value))}
-              className="bg-input border-border text-foreground"
-              min={0}
-              max={59}
-            />
+        {/* Dados vindos do Custo (apenas leitura) */}
+        <div className="rounded-lg bg-secondary/30 p-4 border border-border">
+          <h4 className="mb-3 text-sm font-medium text-foreground flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-chart-3" />
+            Dados da Impressão (da aba Custo)
+          </h4>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-muted-foreground text-xs">Material (R$/kg)</p>
+              <p className="font-medium">R$ {activeCalc?.filamentPrice?.toFixed(2) || 0}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Peso</p>
+              <p className="font-medium">{activeCalc?.weightGrams || 0}g</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Tempo</p>
+              <p className="font-medium">
+                {activeCalc?.printTimeHours || 0}h {activeCalc?.printTimeMinutes || 0}min
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Depreciação</p>
+              <p className="font-medium">{activeCalc?.includeDepreciation ? "✓ Incluída" : "✗ Não incluída"}</p>
+            </div>
           </div>
         </div>
 
@@ -265,3 +236,6 @@ export function PricingCalculator() {
     </Card>
   )
 }
+
+// Exportação padrão para compatibilidade com named import
+export { PricingCalculator as default }

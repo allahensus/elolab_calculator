@@ -26,3 +26,21 @@ export interface CostCalculation {
   totalCost: number
   suggestedPrice: number
 }
+
+// Configurações globais da aplicação
+export interface AppSettings {
+  printerPower: number // Watts
+  kwhPrice: number // Preço do kWh em R$
+  machineValue: number // Valor da impressora em R$
+  expectedMachineLifeHours: number // Vida útil esperada em horas
+  printerName: string // Nome da impressora
+}
+
+// Estado ativo do cálculo de custo
+export interface ActiveCalculation {
+  filamentPrice: number
+  weightGrams: number
+  printTimeHours: number
+  printTimeMinutes: number
+  includeDepreciation: boolean
+}
